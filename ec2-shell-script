@@ -1,0 +1,73 @@
+#!/bin/bash
+#vpc
+
+vpcid=$(aws ec2 create-vpc --cidr-block 10.0.0.0/16 | jq -r '.Vpc .VpcId')
+aws ec2 create-tags --resources $vpcid --tags Key=Name,Value=cli-vpc
+
+#public subnet
+
+publicsubid=$(aws ec2 create-subnet --vpc-id $vpcid --cidr-block 10.0.1.0/24 --availability-zone ca-central-1a | jq -r '.Subnet .SubnetId')
+aws ec2 create-tags --resources $publicsubid --tags Key=Name,Value=public-subnet
+
+#private subnet
+
+privatesubid=$(aws ec2 create-subnet --vpc-id $vpcid --cidr-block 10.0.2.0/24  --availability-zone ca-central-1b | jq -r '.Subnet .SubnetId')
+aws ec2 create-tags --resources $privatesubid --tags Key=Name,Value=private-subnet
+
+#internet-gateway
+igid=$(aws ec2 create-internet-gateway --query InternetGateway.InternetGatewayId --output text)
+aws ec2 attach-internet-gateway --vpc-id $vpcid --internet-gateway-id $igid
+
+#nat-gateway
+adid=$(aws ec2 allocate-address --domain vpc | jq -r '.AllocationId')
+natgatewayid=$(aws ec2 create-nat-gateway  --subnet-id $publicsubid --allocation-id $adid | jq -r '.NatGateway .NatGatewayId')
+
+# create route table
+
+publicrtid=$(aws ec2 create-route-table --vpc-id $vpcid --query RouteTable.RouteTableId --output text)
+aws ec2 create-tags --resources $publicrtid --tags Key=Name,Value=public-route-table
+
+privatertid=$(aws ec2 create-route-table --vpc-id $vpcid --query RouteTable.RouteTableId --output text)
+aws ec2 create-tags --resources $privatertid --tags Key=Name,Value=private-route-table
+
+#create route
+aws ec2 create-route --route-table-id $publicrtid --destination-cidr-block 0.0.0.0/0 --gateway-id $igid
+
+aws ec2 create-route --route-table-id $privatertid --destination-cidr-block 0.0.0.0/0 --gateway-id $natgatewayid
+
+#assocate route table with subnet
+
+aws ec2 associate-route-table  --subnet-id $publicsubid --route-table-id $publicrtid
+aws ec2 associate-route-table  --subnet-id $privatesubid --route-table-id $privatertid
+
+# create ec2 inastance key pair
+aws ec2 create-key-pair --key-name ec2key --query "KeyMaterial" --output text > ec2key.pem
+chmod 400 ec2key.pem
+#angular security group
+sgid=$(aws ec2 create-security-group --group-name angular-security-group --vpc-id $vpcid | jq -r '.GroupId')
+
+aws ec2 authorize-security-group-ingress --group-id $sgid --protocol tcp --port 22 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-id $sgid --protocol tcp --port 80 --cidr 0.0.0.0/0
+#jenkins securitry group
+jsgid=$(aws ec2 create-security-group --group-name jenkins-security-group --vpc-id $vpcid | jq -r '.GroupId')
+
+aws ec2 authorize-security-group-ingress --group-id $jsgid --protocol tcp --port 22 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-id $jsgid --protocol tcp --port 8080 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-id $jsgid --protocol tcp --port 80 --cidr 0.0.0.0/0
+
+#create ec2 instance in public subnet ( angular project )
+ec2id=$(aws ec2 run-instances --image-id ami-0b6937ac543fe96d7 --count 1 --instance-type t2.micro --key-name ec2key --security-group-ids $sgid --subnet-id $p>
+# create volume for jenkins instance
+volumeid=$(aws ec2 create-volume  --size 30  --encrypted  --availability-zone ca-central-1a | jq -r '.VolumeId')
+ # create instance for jenkins
+aws ec2 run-instances --image-id ami-0b6937ac543fe96d7 --count 1 --instance-type t2.medium --key-name ec2key --security-group-ids $jsgid --subnet-id $publics>
+
+# create load balancer
+aws elbv2 create-load-balancer --name my-load-balancer --subnets $privatesubid $publicsubid > loadbalancer.txt
+dnsname=$(cat loadbalancer.txt | jq -r '.LoadBalancers[] .DNSName')
+#lbarm=$(cat loadbalancer.txt | jq -r '.LoadBalancers[] .DNSName')
+echo $dnsname
+#target group
+tgarm=$(aws elbv2 create-target-group --name my-targets --protocol HTTP --port 80 --target-type instance --vpc-id $vpcid | jq -r '.TargetGroups[] .TargetGrou>
+#register instance with load balancer
+aws elb register-instances-with-load-balancer --load-balancer-name my-load-balancer --instances $ec2id
