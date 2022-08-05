@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+    tools {
+        nodejs 'node18.4.0'
+    }
+
+    stages {
+         stage('gitclone') {
+             steps {
+                 git credentialsId: 'git-credential', url: 'https://github.com/darkomni5566/angular-starter-master.git'
+                }
+            }
+            stage('npm build') {
+                steps {
+                    sh 'npm install'
+                    sh 'npm run build' 
+                }
+            }
+            stage('build dockerfile') {
+                steps{
+
+                    sh 'docker build -t project-a .'
+                    
+                }
+            }
+            stage('push image'){
+            steps {
+            script {
+                withAWS(credentials: 'iam-role-aws', region: 'ca-central-1') {
+                sh 'aws ecr get-login-password --region ca-central-1 | docker login --username AWS --password-stdin 136500915441.dkr.ecr.ca-central-1.amazonaws.com'
+                sh 'docker tag project-a:latest 136500915441.dkr.ecr.ca-central-1.amazonaws.com/project-a:latest'
+                sh 'docker push 136500915441.dkr.ecr.ca-central-1.amazonaws.com/project-a:latest'
+            }
+            }
+        }
+            }
+          stage('pull in remote server') {
+            steps {
+           sshagent(credentials: ['10.0.2.181'], ignoreMissing: true) {
+                  sh 'ssh ubuntu@10.0.2.181 -o StrictHostKeyChecking=no sudo apt-get update'
+             sh 'ssh ubuntu@10.0.2.181 aws ecr get-login-password --region ca-central-1 | docker login  --username AWS --password-stdin 136500915441.dkr.ecr.ca-central-1.amazonaws.com'
+                      sh 'ssh ubuntu@10.0.2.181 docker pull 136500915441.dkr.ecr.ca-central-1.amazonaws.com/project-a:latest'
+           }
+            }
+            }  
+          }
+    }
+        
