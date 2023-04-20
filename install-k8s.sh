@@ -20,5 +20,5 @@ apt-get install -y kubelet kubeadm kubectl kubernetes-cni
  # sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
  # sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-#kubectl apply -f https://raw.githubusercontent.com/coreos/f1anne1/master/Documentation/kube-f1anne1.ym1
-#kubectl apply -f https://raw.githubusercontent.com/coreos/f1anne1/master/Documentation/k8s-manifests/kube-f1anne1-rbac.ym1
+#kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+#kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
