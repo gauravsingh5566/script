@@ -21,4 +21,4 @@ apt-get install -y kubelet kubeadm kubectl kubernetes-cni
  # sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 #kubectl apply -f https://raw.githubusercontent.com/coreos/f1anne1/master/Documentation/kube-f1anne1.ym1
-#kubectl a 1 -f htt s: // raw. ithubusercontent.com/coreos/f1anne1/master/Documentation/k8s-manifests/kube-f1anne1-rbac. ml
+#kubectl apply -f https://raw.githubusercontent.com/coreos/f1anne1/master/Documentation/k8s-manifests/kube-f1anne1-rbac.ym1
