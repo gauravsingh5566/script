@@ -1,0 +1,51 @@
+name: FF-angular
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - ON-940-superadmin-staging-main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.20.0]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm install
+      - run: npm run build-staging
+      - name: copy file via scp
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          source: "dist/ff-superadmin/*"
+          target: "/home/centos"
+
+  access_server:
+    name: Access server
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ssh in server    
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          script: |
+             sudo mv /home/centos/dist/ff-superadmin /var/www/html/admin_new
+             sudo mv /var/www/html/admin /var/www/html/admin_"$(date +'%Y%m%d')"
+             sudo mv /var/www/html/admin_new /var/www/html/admin
+             sudo rm -rf /home/centos/dist
+
+
